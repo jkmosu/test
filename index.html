@@ -146,29 +146,30 @@
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap between" style="gap:12px">
-      <div style="display:flex;align-items:center;gap:14px">
-        <h1>Shanya's tracker :)</h1>
+  <div id="app-content" style="display: none;">
+    <header>
+      <div class="wrap between" style="gap:12px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <h1>Shanya's tracker :)</h1>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px">
+          <div id="tabs" class="tabs"></div>
+          <button id="settingsBtn" class="btn-icon" title="Settings (click)">⚙️</button>
+          <button id="streak-pill" class="pill" title="Click for streak details">🔥 <strong id="streak-count">0</strong> days</button>
+          <button class="secondary" id="exportBtn" title="Export your data as JSON">Export</button>
+          <label class="pill" style="cursor:pointer">Import
+            <input id="importFile" type="file" accept="application/json" style="display:none">
+          </label>
+          <div id="auth-container"></div>
+        </div>
       </div>
+    </header>
 
-      <div style="display:flex;align-items:center;gap:10px">
-        <div id="tabs" class="tabs"></div>
-        <button id="settingsBtn" class="btn-icon" title="Settings (click)">⚙️</button>
-        <button id="streak-pill" class="pill" title="Click for streak details">🔥 <strong id="streak-count">0</strong> days</button>
-        <button class="secondary" id="exportBtn" title="Export your data as JSON">Export</button>
-        <label class="pill" style="cursor:pointer">Import
-          <input id="importFile" type="file" accept="application/json" style="display:none">
-        </label>
-        <div id="auth-container"></div>
-      </div>
-    </div>
-  </header>
+    <main class="wrap grid" style="gap:18px;margin-top:14px">
 
-  <main class="wrap grid" style="gap:18px;margin-top:14px">
-
-    <section id="sec-dashboard" class="section active">
-        <div class="panel" style="margin-bottom:18px">
+      <section id="sec-dashboard" class="section active">
+          <div class="panel" style="margin-bottom:18px">
             <div class="between" style="margin-bottom:12px">
               <h3>Reminders</h3>
               <div class="row">
@@ -326,7 +327,20 @@
         <div class="list" id="hwList" style="margin-top:12px"></div>
       </div>
     </section>
-  </main>
+    </main>
+  </div>
+
+  <div id="loginModal" style="display: none;">
+    <div class="modal-back" style="display: flex;">
+        <div class="modal" style="text-align: center;">
+            <h2>Welcome!</h2>
+            <p class="muted" style="margin-top: 8px;">Sign in to save your progress and access your tracker from anywhere.</p>
+            <button id="loginBtn" class="btn" style="margin-top: 16px; padding: 10px 16px;">
+                Sign In & Continue
+            </button>
+        </div>
+    </div>
+  </div>
 
   <div id="settingsModal" style="display:none">
     <div class="modal-back" id="settingsBack">
@@ -386,7 +400,7 @@
 <script type="module">
   // Firebase Imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signInAnonymously, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
   // ---------- Firebase & Auth Setup ----------
@@ -446,23 +460,27 @@
 
   onAuthStateChanged(auth, async (user) => {
     const authContainer = document.getElementById('auth-container');
+    const loginModal = document.getElementById('loginModal');
+    const appContent = document.getElementById('app-content');
+
     if (user) {
         userId = user.uid;
         authContainer.innerHTML = `<button id="logoutBtn" class="secondary tiny">Logout</button>`;
         document.getElementById('logoutBtn').onclick = () => signOut(auth);
+
+        loginModal.style.display = 'none';
+        appContent.style.display = 'block';
+
         await loadData();
     } else {
         userId = null;
-        authContainer.innerHTML = `<button id="loginBtn" class="btn">Login / Register</button>`;
-        document.getElementById('loginBtn').onclick = async () => {
-             if (typeof __initial_auth_token !== 'undefined') {
-                await signInWithCustomToken(auth, __initial_auth_token);
-             } else {
-                await signInAnonymously(auth);
-             }
-        };
+        authContainer.innerHTML = ``; // Clear auth container
+
+        loginModal.style.display = 'flex';
+        appContent.style.display = 'none';
+
         appData = getInitialState();
-        refreshAll();
+        refreshAll(); // Refresh to clear out any stale data in the UI
     }
   });
 
@@ -958,7 +976,30 @@
     renderReminders(); renderHomeworkList(); renderDailyTasks();
   }
 
-  (function init(){ 
+  (async function init(){
+    // Auto sign-in with custom token if available on initial load
+    if (typeof __initial_auth_token !== 'undefined' && !auth.currentUser) {
+        try {
+            await signInWithCustomToken(auth, __initial_auth_token);
+        } catch (error) {
+            console.error("Custom token sign-in failed", error);
+        }
+    }
+
+    // Handle manual sign-in from the modal
+    document.getElementById('loginBtn').onclick = async () => {
+        try {
+            if (typeof __initial_auth_token !== 'undefined') {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                // Fallback to anonymous sign-in if no token is provided
+                await signInAnonymously(auth);
+            }
+        } catch (error) {
+            console.error("Sign-in error:", error);
+        }
+    };
+
     const deleteZone = $('#delete-zone');
     deleteZone.addEventListener('dragover', handleDragOver);
     deleteZone.addEventListener('dragenter', handleDragEnter);
@@ -968,3 +1009,4 @@
 </script>
 </body>
 </html>
+
