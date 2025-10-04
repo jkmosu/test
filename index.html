@@ -99,8 +99,8 @@
     .ghost:hover{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.45); }
     .danger{ background: linear-gradient(180deg,var(--danger), #e55353); color:#120000; border-radius:10px; padding:8px 12px }
     .tiny{ font-size:.8rem; padding:6px 8px; border-radius:8px }
-    label{font-size:.9rem;color:var(--muted)}
-    input[type="text"],input[type="number"],input[type="date"],input[type="time"],select,textarea{
+    label{font-size:.9rem;color:var(--muted); display: block; margin-bottom: 4px;}
+    input[type="text"],input[type="number"],input[type="date"],input[type="time"],input[type="email"],input[type="password"],select,textarea{
       width:100%;background:transparent;border:1px solid color-mix(in srgb, var(--text) 4%, transparent);color:var(--text);
       border-radius:8px;padding:8px;font-family:inherit;
     }
@@ -127,9 +127,10 @@
     .list{display:flex;flex-direction:column;gap:10px}
     .chip{border:1px solid color-mix(in srgb, var(--text) 3%, transparent);background:transparent;border-radius:999px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center}
     .small{font-size:.85rem}
-    .link{color:var(--accent)}
+    .link{color:var(--accent); text-decoration: none;}
+    .link:hover{text-decoration: underline;}
     .modal-back{position:fixed;inset:0;background:linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5));display:flex;align-items:center;justify-content:center;z-index:60}
-    .modal{background:var(--panel);border-radius:12px;padding:18px;max-width:520px;border:1px solid color-mix(in srgb, var(--text) 4%, transparent)}
+    .modal{background:var(--panel);border-radius:12px;padding:24px;width:100%;max-width:420px;border:1px solid color-mix(in srgb, var(--text) 4%, transparent)}
     .btn-icon{background:transparent;border:1px solid color-mix(in srgb, var(--text) 4%, transparent);padding:6px;border-radius:8px;color:var(--muted)}
     .btn-icon:hover{color:var(--text);transform:translateY(-3px)}
     #next-test-box .chip { padding:10px; }
@@ -331,13 +332,53 @@
   </div>
 
   <div id="loginModal" style="display: flex;">
-    <div class="modal-back" style="display: flex;">
-        <div class="modal" style="text-align: center;">
-            <h2>Welcome!</h2>
-            <p class="muted" style="margin-top: 8px;">Sign in to save your progress and access your tracker from anywhere.</p>
-            <button id="loginBtn" class="btn" style="margin-top: 16px; padding: 10px 16px;">
-                Sign In & Continue
-            </button>
+    <div class="modal-back">
+        <div class="modal">
+            <!-- Login Form -->
+            <div id="login-form">
+                <h2 style="margin-top:0">Welcome Back!</h2>
+                <p class="muted" style="margin-top: 8px; margin-bottom: 20px;">Sign in to save and access your data.</p>
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label for="loginEmail">Email</label>
+                        <input id="loginEmail" type="email" placeholder="you@example.com" />
+                    </div>
+                    <div>
+                        <label for="loginPassword">Password</label>
+                        <input id="loginPassword" type="password" placeholder="••••••••" />
+                    </div>
+                </div>
+                <p id="loginError" style="color: var(--danger); font-size: 0.85rem; margin-top: 12px; display: none;"></p>
+                <button id="loginBtn" class="btn" style="margin-top: 16px; padding: 10px 16px; width: 100%;">
+                    Sign In
+                </button>
+                <p class="muted" style="text-align: center; margin-top: 16px; font-size: 0.9rem;">
+                    Don't have an account? <a href="#" id="showSignup" class="link">Create one</a>
+                </p>
+            </div>
+
+            <!-- Signup Form -->
+            <div id="signup-form" style="display: none;">
+                <h2 style="margin-top:0">Create Account</h2>
+                <p class="muted" style="margin-top: 8px; margin-bottom: 20px;">Get started with a new account.</p>
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label for="signupEmail">Email</label>
+                        <input id="signupEmail" type="email" placeholder="you@example.com" />
+                    </div>
+                    <div>
+                        <label for="signupPassword">Password</label>
+                        <input id="signupPassword" type="password" placeholder="••••••••" />
+                    </div>
+                </div>
+                 <p id="signupError" style="color: var(--danger); font-size: 0.85rem; margin-top: 12px; display: none;"></p>
+                <button id="signupBtn" class="btn" style="margin-top: 16px; padding: 10px 16px; width: 100%;">
+                    Create Account
+                </button>
+                <p class="muted" style="text-align: center; margin-top: 16px; font-size: 0.9rem;">
+                    Already have an account? <a href="#" id="showLogin" class="link">Sign in</a>
+                </p>
+            </div>
         </div>
     </div>
   </div>
@@ -400,7 +441,7 @@
 <script type="module">
   // Firebase Imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
   // ---------- Firebase & Auth Setup ----------
@@ -977,22 +1018,72 @@
   }
 
   (async function init(){
-    // The onAuthStateChanged listener handles showing the app if the user is already logged in.
-    // We just need to set up the button for manual sign-in.
-
-    document.getElementById('loginBtn').onclick = async () => {
+    // First, try to sign in automatically with a provided token
+    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
         try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                // Fallback to anonymous sign-in if no token is provided
-                await signInAnonymously(auth);
-            }
+            await signInWithCustomToken(auth, __initial_auth_token);
         } catch (error) {
-            console.error("Sign-in error:", error);
+            console.error("Token sign-in error:", error);
+            // If token sign-in fails, the user will see the manual login form.
+        }
+    }
+
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const showSignup = document.getElementById('showSignup');
+    const showLogin = document.getElementById('showLogin');
+    const loginBtn = document.getElementById('loginBtn');
+    const signupBtn = document.getElementById('signupBtn');
+    const loginError = document.getElementById('loginError');
+    const signupError = document.getElementById('signupError');
+
+    // --- Event Listeners for Login/Signup UI ---
+
+    // Toggle between login and signup forms
+    showSignup.onclick = (e) => { e.preventDefault(); loginForm.style.display = 'none'; signupForm.style.display = 'block'; };
+    showLogin.onclick = (e) => { e.preventDefault(); signupForm.style.display = 'none'; loginForm.style.display = 'block'; };
+
+    // Handle Login button click
+    loginBtn.onclick = async () => {
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        loginError.style.display = 'none';
+        if (!email || !password) {
+            loginError.textContent = "Please enter both email and password.";
+            loginError.style.display = 'block';
+            return;
+        }
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            // onAuthStateChanged will handle hiding the modal
+        } catch (error) {
+            console.error("Login failed:", error.message);
+            loginError.textContent = "Failed to sign in. Please check your credentials.";
+            loginError.style.display = 'block';
         }
     };
 
+    // Handle Sign Up button click
+    signupBtn.onclick = async () => {
+        const email = document.getElementById('signupEmail').value;
+        const password = document.getElementById('signupPassword').value;
+        signupError.style.display = 'none';
+        if (!email || !password) {
+            signupError.textContent = "Please enter both email and password.";
+            signupError.style.display = 'block';
+            return;
+        }
+        try {
+            await createUserWithEmailAndPassword(auth, email, password);
+            // onAuthStateChanged will handle hiding the modal
+        } catch (error) {
+            console.error("Signup failed:", error.message);
+            signupError.textContent = "Failed to create account. Email may already be in use.";
+            signupError.style.display = 'block';
+        }
+    };
+
+    // --- Drag and Drop for Calendar Delete Zone ---
     const deleteZone = $('#delete-zone');
     deleteZone.addEventListener('dragover', handleDragOver);
     deleteZone.addEventListener('dragenter', handleDragEnter);
@@ -1002,4 +1093,3 @@
 </script>
 </body>
 </html>
-
