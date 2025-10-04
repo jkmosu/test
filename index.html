@@ -330,7 +330,7 @@
     </main>
   </div>
 
-  <div id="loginModal" style="display: none;">
+  <div id="loginModal" style="display: flex;">
     <div class="modal-back" style="display: flex;">
         <div class="modal" style="text-align: center;">
             <h2>Welcome!</h2>
@@ -977,19 +977,12 @@
   }
 
   (async function init(){
-    // Auto sign-in with custom token if available on initial load
-    if (typeof __initial_auth_token !== 'undefined' && !auth.currentUser) {
-        try {
-            await signInWithCustomToken(auth, __initial_auth_token);
-        } catch (error) {
-            console.error("Custom token sign-in failed", error);
-        }
-    }
+    // The onAuthStateChanged listener handles showing the app if the user is already logged in.
+    // We just need to set up the button for manual sign-in.
 
-    // Handle manual sign-in from the modal
     document.getElementById('loginBtn').onclick = async () => {
         try {
-            if (typeof __initial_auth_token !== 'undefined') {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
                 // Fallback to anonymous sign-in if no token is provided
